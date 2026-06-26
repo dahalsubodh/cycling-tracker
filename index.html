@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#0f1a12">
 <title>Ride Tracker</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -20,324 +21,667 @@
     --accent: #4ade80;
     --accent-dim: rgba(74,222,128,0.12);
     --accent-border: rgba(74,222,128,0.3);
+    --amber: #fbbf24;
+    --amber-dim: rgba(251,191,36,0.12);
     --red: #f87171;
+    --red-dim: rgba(248,113,113,0.12);
     --blue: #60a5fa;
+    --blue-dim: rgba(96,165,250,0.12);
     --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --mono: 'SF Mono', 'Fira Code', 'Courier New', monospace;
     --radius: 12px;
+    --radius-sm: 8px;
   }
 
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font); }
-  
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    overscroll-behavior: none;
+  }
+
   body {
     display: flex;
     flex-direction: column;
     max-width: 480px;
     margin: 0 auto;
     min-height: 100vh;
+    min-height: -webkit-fill-available;
   }
 
+  /* ── Header ── */
   header {
-    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px 8px;
     background: var(--surface);
     border-bottom: 1px solid var(--border);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
     position: sticky;
     top: 0;
     z-index: 100;
     flex-shrink: 0;
   }
-
-  .header-title { font-size: 16px; font-weight: 600; }
-
-  .settings-btn {
-    background: var(--accent-dim);
-    border: 1px solid var(--accent-border);
-    color: var(--text);
-    padding: 6px 12px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 12px;
-    transition: background 0.2s;
-  }
-  .settings-btn:active { background: rgba(74,222,128,0.2); }
-
-  #map {
-    height: 300px;
-    flex-shrink: 0;
-    position: relative;
-    background: var(--card);
-  }
-
-  .stats-container {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 12px;
-    padding: 16px;
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-  }
-
-  .stat-box {
-    background: var(--card);
-    padding: 12px;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-    text-align: center;
-  }
-
-  .stat-label { font-size: 10px; color: var(--muted); text-transform: uppercase; }
-  .stat-value { font-size: 20px; font-weight: 600; color: var(--accent); margin-top: 4px; }
-
-  .controls {
-    display: flex;
-    gap: 8px;
-    padding: 16px;
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-  }
-
-  .btn {
-    flex: 1;
-    padding: 12px;
-    border: none;
-    border-radius: 8px;
+  .header-left h1 {
     font-size: 14px;
     font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-
-  .btn-primary {
-    background: var(--accent);
-    color: var(--bg);
-  }
-  .btn-primary:active { background: #3dc265; }
-
-  .btn-secondary {
-    background: var(--card);
     color: var(--text);
+    letter-spacing: -0.02em;
+  }
+  .header-left p {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 1px;
+  }
+  .header-logo {
+    width: 32px; height: 32px;
+    background: var(--accent-dim);
+    border: 1px solid var(--accent-border);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .header-logo:active { background: rgba(74,222,128,0.18); }
+
+  /* ── Status bar ── */
+  #status-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 16px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .status-pill {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 99px;
+    background: var(--card);
     border: 1px solid var(--border);
+    color: var(--muted);
+    transition: all 0.3s;
   }
-  .btn-secondary:active { background: var(--surface); }
-
-  .scrollable {
-    flex: 1;
-    overflow-y: auto;
-    padding: 16px;
+  .status-pill.riding { background: var(--accent-dim); border-color: var(--accent-border); color: var(--accent); }
+  .status-pill.paused { background: var(--amber-dim); border-color: rgba(251,191,36,0.3); color: var(--amber); }
+  .status-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: currentColor;
   }
+  .status-dot.pulse { animation: pulse 1.4s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
 
-  .section {
-    margin-bottom: 20px;
+  .gps-indicator {
+    display: flex; align-items: center; gap: 4px;
+    font-size: 10px; color: var(--muted);
   }
+  .gps-indicator.active { color: var(--accent); }
+  .gps-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--muted);
+  }
+  .gps-indicator.active .gps-dot { background: var(--accent); animation: pulse 1.2s infinite; }
 
-  .section-title {
-    font-size: 12px;
+  /* ── Map ── */
+  #map {
+    height: 180px;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 1;
+  }
+  .leaflet-container { background: #1a2e1c !important; }
+  .leaflet-tile { filter: saturate(0.4) brightness(0.6) hue-rotate(80deg); }
+
+  /* ── Stats grid - compact ── */
+  #stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 6px;
+    padding: 10px 12px;
+    flex-shrink: 0;
+  }
+  .stat {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+    transition: border-color 0.3s;
+  }
+  .stat.highlight { border-color: var(--accent-border); }
+  .stat-label {
+    font-size: 9px;
     font-weight: 600;
     color: var(--muted);
+    letter-spacing: 0.06em;
     text-transform: uppercase;
+    margin-bottom: 3px;
+    display: flex; align-items: center; gap: 3px;
+  }
+  .stat-label svg { width: 10px; height: 10px; opacity: 0.7; }
+  .stat-value {
+    font-size: 18px;
+    font-weight: 700;
+    font-family: var(--mono);
+    color: var(--text);
+    line-height: 1;
+    letter-spacing: -0.02em;
+  }
+  .stat-unit { font-size: 10px; font-weight: 400; color: var(--muted); font-family: var(--font); margin-left: 2px; }
+
+  /* ── Controls - compact ── */
+  #controls {
+    display: flex; gap: 6px;
+    padding: 10px 12px;
+    flex-shrink: 0;
+  }
+  #btn-main {
+    flex: 1; height: 44px;
+    border-radius: var(--radius);
+    border: none;
+    background: var(--accent);
+    color: #0a1a0c;
+    font-size: 13px; font-weight: 700;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    font-family: var(--font);
+    transition: opacity 0.2s, transform 0.1s;
+    -webkit-tap-highlight-color: transparent;
+    letter-spacing: -0.01em;
+  }
+  #btn-main:active { transform: scale(0.97); opacity: 0.9; }
+  #btn-main.paused { background: var(--amber); }
+  #btn-main:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  .btn-control {
+    width: 44px; height: 44px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font);
+    flex-shrink: 0;
+    transition: background 0.2s, transform 0.1s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .btn-control:active { transform: scale(0.96); background: var(--surface); }
+  .btn-control:disabled { opacity: 0.3; cursor: not-allowed; }
+  .btn-control svg { width: 20px; height: 20px; stroke: currentColor; stroke-width: 2; fill: none; }
+  #btn-stop svg { stroke: var(--red); }
+
+  /* ── Elevation bar ── */
+  #elev-section {
+    margin: 0 12px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 12px;
+    flex-shrink: 0;
+  }
+  #elev-canvas { width: 100%; height: 48px; display: block; }
+
+  /* ── Waypoints - compact collapsible ── */
+  #waypoints {
+    margin: 0 12px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0;
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+  .wp-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.2s;
+  }
+  .wp-header:active { background: rgba(255,255,255,0.04); }
+  .wp-header-title {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12px; font-weight: 600;
+    color: var(--text);
+  }
+  .wp-toggle {
+    display: flex; align-items: center; justify-content: center;
+    width: 20px; height: 20px;
+    color: var(--muted);
+    transition: transform 0.3s;
+  }
+  .wp-toggle.open { transform: rotate(180deg); }
+  
+  #wp-list {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+    border-top: 1px solid var(--border);
+  }
+  #wp-list.open { max-height: 400px; }
+  
+  .wp-content {
+    padding: 10px 12px;
+  }
+  .wp-row {
+    display: flex; align-items: flex-start; gap: 8px;
+    min-height: 32px;
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .wp-row:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
+  
+  .wp-track {
+    display: flex; flex-direction: column; align-items: center;
+    padding-top: 2px; flex-shrink: 0; width: 14px;
+  }
+  .wp-circle {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    border: 2px solid var(--muted);
+    background: var(--card);
+    flex-shrink: 0;
+    transition: all 0.4s;
+  }
+  .wp-circle.done { background: var(--accent); border-color: var(--accent); }
+  .wp-circle.current { background: var(--blue); border-color: var(--blue); box-shadow: 0 0 0 2px var(--blue-dim); animation: pulse 1.2s infinite; }
+  .wp-circle.end-dot { border-color: var(--red); }
+  .wp-circle.end-dot.done { background: var(--red); }
+  .wp-line { width: 1px; flex: 1; background: rgba(255,255,255,0.06); min-height: 10px; margin: 2px 0; }
+  
+  .wp-info { flex: 1; padding-bottom: 0; }
+  .wp-name { font-size: 12px; font-weight: 500; color: var(--text); }
+  .wp-sub { font-size: 10px; color: var(--muted); margin-top: 0px; }
+  .wp-badge {
+    font-size: 9px; font-weight: 600;
+    padding: 2px 6px; border-radius: 99px;
+    margin-left: auto; flex-shrink: 0; align-self: flex-start; margin-top: 0;
+  }
+  .wp-badge.done { background: var(--accent-dim); color: var(--accent); border: 1px solid var(--accent-border); }
+  .wp-badge.next { background: var(--blue-dim); color: var(--blue); border: 1px solid rgba(96,165,250,0.3); }
+  .wp-badge.dist { background: var(--card); color: var(--muted); border: 1px solid var(--border); }
+
+  /* ── Route config modal ── */
+  #config-modal {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 999;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 0;
+  }
+  #config-modal.show { display: flex; }
+  #config-content {
+    background: var(--surface);
+    border-radius: 24px 24px 0 0;
+    border: 1px solid var(--border);
+    padding: 20px 20px 36px;
+    width: 100%;
+    max-width: 480px;
+    max-height: 85vh;
+    overflow-y: auto;
+    animation: slideUp 0.3s ease;
+  }
+  @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  .config-handle { width: 36px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto 20px; }
+  .config-title { font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 16px; }
+  
+  .form-group {
     margin-bottom: 12px;
   }
+  .form-label {
+    font-size: 12px; font-weight: 600;
+    color: var(--muted); text-transform: uppercase;
+    letter-spacing: 0.06em; margin-bottom: 4px; display: block;
+  }
+  .form-input {
+    width: 100%;
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    font-family: var(--font);
+    transition: border-color 0.2s;
+  }
+  .form-input:focus { outline: none; border-color: var(--accent-border); }
 
-  .waypoint-list {
+  .wp-edit-row {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    display: flex; gap: 8px; align-items: flex-start;
+  }
+  .wp-edit-fields { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+  .wp-edit-fields input { font-size: 12px; padding: 6px 8px; }
+  .wp-edit-remove {
+    width: 32px; height: 32px;
+    background: var(--red-dim);
+    border: 1px solid rgba(248,113,113,0.25);
+    color: var(--red);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+    transition: background 0.2s;
+    margin-top: 18px;
+  }
+  .wp-edit-remove:active { background: rgba(248,113,113,0.2); }
+
+  .btn-config-action {
+    width: 100%; height: 44px;
+    background: var(--accent-dim);
+    border: 1px solid var(--accent-border);
+    color: var(--accent);
+    border-radius: var(--radius);
+    font-size: 13px; font-weight: 600;
+    cursor: pointer;
+    font-family: var(--font);
+    margin-bottom: 8px;
+    transition: background 0.2s;
+  }
+  .btn-config-action:active { background: rgba(74,222,128,0.2); }
+  .btn-config-close {
+    width: 100%; height: 44px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    border-radius: var(--radius);
+    font-size: 13px;
+    cursor: pointer;
+    font-family: var(--font);
+    transition: background 0.2s;
+  }
+  .btn-config-close:active { background: var(--surface); }
+
+  /* ── History ── */
+  #history-section {
+    margin: 0 12px;
+    flex-shrink: 0;
+  }
+  .history-empty { font-size: 12px; color: var(--muted); padding: 6px 0; }
+  .ride-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+    margin-bottom: 6px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .ride-icon {
+    width: 32px; height: 32px; border-radius: 6px;
+    background: var(--accent-dim); border: 1px solid var(--accent-border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; flex-shrink: 0;
+  }
+  .ride-info { flex: 1; min-width: 0; }
+  .ride-title { font-size: 12px; font-weight: 600; color: var(--text); }
+  .ride-meta { font-size: 10px; color: var(--muted); margin-top: 1px; }
+  .ride-km { font-size: 14px; font-weight: 700; color: var(--accent); font-family: var(--mono); flex-shrink: 0; }
+
+  /* ── Summary overlay ── */
+  #overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 999;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 0;
+  }
+  #overlay.show { display: flex; }
+  #summary {
+    background: var(--surface);
+    border-radius: 24px 24px 0 0;
+    border: 1px solid var(--border);
+    padding: 20px 20px 36px;
+    width: 100%;
+    max-width: 480px;
+    animation: slideUp 0.3s ease;
+  }
+  .sum-handle { width: 36px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto 20px; }
+  .sum-title { font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+  .sum-sub { font-size: 12px; color: var(--muted); margin-bottom: 16px; }
+  .sum-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+  .sum-stat {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 10px 12px;
+  }
+  .sum-stat-label { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
+  .sum-stat-val { font-size: 18px; font-weight: 700; font-family: var(--mono); color: var(--text); margin-top: 2px; }
+  .sum-stat-unit { font-size: 10px; color: var(--muted); font-family: var(--font); }
+  #btn-share {
+    width: 100%; height: 44px;
+    background: var(--accent-dim); border: 1px solid var(--accent-border);
+    color: var(--accent); border-radius: var(--radius);
+    font-size: 13px; font-weight: 600; cursor: pointer;
+    font-family: var(--font); margin-bottom: 8px;
+    transition: background 0.2s;
+  }
+  #btn-share:active { background: rgba(74,222,128,0.2); }
+  #btn-dismiss {
+    width: 100%; height: 44px;
+    background: var(--card); border: 1px solid var(--border);
+    color: var(--muted); border-radius: var(--radius);
+    font-size: 13px; cursor: pointer;
+    font-family: var(--font);
+    transition: background 0.2s;
+  }
+  #btn-dismiss:active { background: var(--surface); }
+
+  /* ── GPS error ── */
+  #gps-error {
+    display: none;
+    margin: 0 12px;
+    background: var(--red-dim);
+    border: 1px solid rgba(248,113,113,0.25);
+    border-radius: var(--radius-sm);
+    padding: 8px 12px;
+    font-size: 11px; color: var(--red);
+  }
+  #gps-error.show { display: block; }
+
+  /* ── Scrollable main content ── */
+  #scroll-body {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
     display: flex;
     flex-direction: column;
     gap: 8px;
+    padding: 8px 0;
   }
 
-  .waypoint-item {
-    background: var(--card);
-    border: 1px solid var(--border);
-    padding: 12px;
-    border-radius: 8px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .waypoint-info { flex: 1; }
-  .waypoint-name { font-size: 13px; font-weight: 500; }
-  .waypoint-coords { font-size: 11px; color: var(--muted); margin-top: 2px; }
-
-  .btn-remove {
-    background: var(--red-dim);
-    color: var(--red);
-    border: 1px solid rgba(248,113,113,0.3);
-    padding: 4px 8px;
-    font-size: 10px;
-    border-radius: 4px;
-    cursor: pointer;
-  }
-
-  /* Modal */
-  .modal {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0,0,0,0.5);
-    display: none;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-  }
-
-  .modal.show { display: flex; }
-
-  .modal-content {
-    background: var(--surface);
-    border-radius: 12px;
-    padding: 20px;
-    max-width: 400px;
-    width: 90%;
-    max-height: 80vh;
-    overflow-y: auto;
-  }
-
-  .modal-title {
-    font-size: 16px;
-    font-weight: 600;
-    margin-bottom: 16px;
-  }
-
-  .form-group {
-    margin-bottom: 16px;
-  }
-
-  .form-label {
-    display: block;
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--muted);
-    margin-bottom: 6px;
-  }
-
-  .form-input {
-    width: 100%;
-    padding: 8px 12px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    color: var(--text);
-    font-size: 13px;
-  }
-
-  .form-input:focus {
-    outline: none;
-    border-color: var(--accent);
-    box-shadow: 0 0 0 2px var(--accent-dim);
-  }
-
-  .modal-actions {
-    display: flex;
-    gap: 8px;
-    margin-top: 20px;
-  }
-
-  .modal-actions button {
-    flex: 1;
-    padding: 10px;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    font-weight: 600;
-  }
-
-  .modal-actions .btn-primary {
-    background: var(--accent);
-    color: var(--bg);
-  }
-
-  .modal-actions .btn-secondary {
-    background: var(--card);
-    border: 1px solid var(--border);
-    color: var(--text);
-  }
-
-  .error { color: var(--red); font-size: 11px; margin-top: 4px; }
+  /* bottom safe area */
+  .safe-bottom { height: env(safe-area-inset-bottom, 12px); flex-shrink: 0; }
 </style>
 </head>
 <body>
 
 <header>
-  <div class="header-title">🗺️ Ride Tracker</div>
-  <button class="settings-btn" onclick="openWaypointModal()">Add Waypoint</button>
+  <div class="header-left">
+    <h1 id="route-title">🚴 Ride Tracker</h1>
+    <p id="route-name">No route selected</p>
+  </div>
+  <div class="header-logo" id="config-btn" title="Configure route" onclick="openConfig()">⚙️</div>
 </header>
+
+<div id="status-bar">
+  <div class="status-pill" id="status-pill">
+    <span class="status-dot" id="status-dot"></span>
+    <span id="status-text">Ready to ride</span>
+  </div>
+  <div class="gps-indicator" id="gps-indicator">
+    <span class="gps-dot"></span>
+    <span id="gps-text">GPS off</span>
+  </div>
+</div>
 
 <div id="map"></div>
 
-<div class="stats-container">
-  <div class="stat-box">
-    <div class="stat-label">Distance</div>
-    <div class="stat-value" id="distance">0 km</div>
+<div id="scroll-body">
+
+  <div id="gps-error">
+    ⚠️ <span id="gps-error-text">GPS unavailable. Enable location access for live tracking.</span>
   </div>
-  <div class="stat-box">
-    <div class="stat-label">Time</div>
-    <div class="stat-value" id="time">0:00</div>
+
+  <!-- Stats visible without scroll -->
+  <div id="stats">
+    <div class="stat" id="stat-dist">
+      <div class="stat-label"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 8h12M8 2l6 6-6 6"/></svg> Dist</div>
+      <div class="stat-value" id="val-dist">0.0<span class="stat-unit">km</span></div>
+    </div>
+    <div class="stat" id="stat-time">
+      <div class="stat-label"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/></svg> Time</div>
+      <div class="stat-value" id="val-time">0:00<span class="stat-unit">m</span></div>
+    </div>
+    <div class="stat" id="stat-speed">
+      <div class="stat-label"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 10 C4 4 12 4 14 10"/><path d="M8 10 L10 7"/></svg> Speed</div>
+      <div class="stat-value" id="val-speed">0.0<span class="stat-unit">km/h</span></div>
+    </div>
   </div>
-  <div class="stat-box">
-    <div class="stat-label">Speed</div>
-    <div class="stat-value" id="speed">0 km/h</div>
+
+  <!-- Controls visible without scroll -->
+  <div id="controls">
+    <button id="btn-main" onclick="handleMain()">Start ride</button>
+    <button class="btn-control" id="btn-pause" disabled onclick="handlePause()" title="Pause">
+      <svg viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+    </button>
+    <button class="btn-control" id="btn-stop" disabled onclick="handleStop()" title="Stop">
+      <svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12"/></svg>
+    </button>
+  </div>
+
+  <!-- Elevation ── -->
+  <div id="elev-section">
+    <div style="font-size: 10px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px;">📈 Elevation</div>
+    <canvas id="elev-canvas"></canvas>
+  </div>
+
+  <!-- Collapsible Waypoints -->
+  <div id="waypoints">
+    <div class="wp-header" onclick="toggleWaypoints()">
+      <div class="wp-header-title">
+        <span>📍 Waypoints</span>
+        <span id="wp-count" style="font-size: 10px; color: var(--muted);">(0)</span>
+      </div>
+      <div class="wp-toggle" id="wp-toggle">▼</div>
+    </div>
+    <div id="wp-list">
+      <div class="wp-content" id="wp-content"></div>
+    </div>
+  </div>
+
+  <!-- History -->
+  <div id="history-section">
+    <div style="font-size: 10px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; margin-left: 12px;">🕓 Rides</div>
+    <div id="history-list"><p class="history-empty">No rides yet</p></div>
+  </div>
+
+  <div class="safe-bottom"></div>
+</div>
+
+<!-- Config Modal -->
+<div id="config-modal">
+  <div id="config-content">
+    <div class="config-handle"></div>
+    <div class="config-title">Configure Route</div>
+    
+    <div class="form-group">
+      <label class="form-label">Route Name</label>
+      <input type="text" id="config-route-name" class="form-input" placeholder="e.g., Dhapakhel to Lele Valley">
+    </div>
+    
+    <div class="form-group">
+      <label class="form-label">Short Description</label>
+      <input type="text" id="config-route-desc" class="form-input" placeholder="e.g., ~14 km · Lalitpur, Nepal">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" style="margin-bottom: 8px;">Waypoints</label>
+      <div id="config-waypoints"></div>
+      <button class="btn-config-action" onclick="addWaypoint()">+ Add Waypoint</button>
+    </div>
+
+    <button class="btn-config-action" onclick="saveConfig()">Save Configuration</button>
+    <button class="btn-config-close" onclick="closeConfig()">Close</button>
   </div>
 </div>
 
-<div class="controls">
-  <button class="btn btn-primary" id="startBtn" onclick="startRide()">Start Ride</button>
-  <button class="btn btn-secondary" id="stopBtn" onclick="stopRide()" style="display:none;">Stop Ride</button>
-</div>
-
-<div class="scrollable">
-  <div class="section">
-    <div class="section-title">Waypoints</div>
-    <div class="waypoint-list" id="waypointList">
-      <div style="color: var(--muted); font-size: 12px;">No waypoints yet. Click "Add Waypoint" to get started.</div>
+<!-- Summary sheet -->
+<div id="overlay">
+  <div id="summary">
+    <div class="sum-handle"></div>
+    <div class="sum-title">🏁 Ride complete!</div>
+    <div class="sum-sub" id="sum-route">Route name</div>
+    <div class="sum-grid">
+      <div class="sum-stat"><div class="sum-stat-label">Distance</div><div class="sum-stat-val" id="sum-dist">—</div><div class="sum-stat-unit">km</div></div>
+      <div class="sum-stat"><div class="sum-stat-label">Duration</div><div class="sum-stat-val" id="sum-time">—</div><div class="sum-stat-unit">time</div></div>
+      <div class="sum-stat"><div class="sum-stat-label">Avg speed</div><div class="sum-stat-val" id="sum-avg">—</div><div class="sum-stat-unit">km/h</div></div>
+      <div class="sum-stat"><div class="sum-stat-label">Checkpoints</div><div class="sum-stat-val" id="sum-wp">—</div><div class="sum-stat-unit">reached</div></div>
     </div>
-  </div>
-</div>
-
-<!-- Add Waypoint Modal -->
-<div id="waypointModal" class="modal">
-  <div class="modal-content">
-    <div class="modal-title">Add Waypoint</div>
-    <div class="form-group">
-      <label class="form-label">Name</label>
-      <input type="text" class="form-input" id="wpName" placeholder="e.g., Starting Point">
-    </div>
-    <div class="form-group">
-      <label class="form-label">Latitude</label>
-      <input type="number" class="form-input" id="wpLat" placeholder="e.g., 27.7172" step="0.0001">
-    </div>
-    <div class="form-group">
-      <label class="form-label">Longitude</label>
-      <input type="number" class="form-input" id="wpLng" placeholder="e.g., 85.3240" step="0.0001">
-    </div>
-    <div id="errorMsg" class="error"></div>
-    <div class="modal-actions">
-      <button class="btn-secondary" onclick="closeWaypointModal()">Cancel</button>
-      <button class="btn-primary" onclick="addWaypoint()">Add</button>
-    </div>
+    <button id="btn-share" onclick="shareRide()">📤 Share this ride</button>
+    <button id="btn-dismiss" onclick="closeSummary()">Done</button>
   </div>
 </div>
 
 <script>
-let map = null;
-let posMarker = null;
-let posCircle = null;
-let routeLine = null;
-let waypoints = [];
-let waypointMarkers = [];
-let rideActive = false;
-let rideData = {
-  startTime: null,
-  distance: 0,
-  lastPos: null,
-  positions: []
+// ── Config ──────────────────────────────────────────────────
+let ROUTE = {
+  name: 'Sample Route',
+  shortDesc: 'Configure a route',
+  transport: 'cycling',
+  totalDist: 14
 };
 
-// Initialize map
+let WAYPOINTS = [
+  { name: 'Start Point', sub: 'Beginning', dist: 0, lat: 27.6415, lng: 85.3303 },
+  { name: 'End Point', sub: 'Finish line', dist: 14, lat: 27.5684, lng: 85.3409 },
+];
+
+let ROUTE_COORDS = [[27.6415,85.3303],[27.5684,85.3409]];
+let ELEV = [1330, 1245];
+
+// ── State ────────────────────────────────────────────────────
+let state = {
+  status: 'idle',
+  elapsed: 0,
+  distKm: 0,
+  speed: 0,
+  avgSpeed: 0,
+  maxSpeed: 0,
+  positions: [],
+  visitedWps: new Set([0]),
+  timerInt: null,
+  gpsWatchId: null,
+  lastPos: null,
+  rideHistory: [],
+  usingRealGPS: false,
+  simStep: 0,
+  simInt: null,
+  wpOpen: false
+};
+
+let map = null;
+let routeLine = null;
+let riddenLine = null;
+let wpMarkers = [];
+let posMarker = null;
+
+// ── Initialize map ──────────────────────────────────────────
 function initMap() {
   if (!map) {
     map = L.map('map', {
@@ -346,212 +690,468 @@ function initMap() {
       dragging: true,
       scrollWheelZoom: false,
     }).setView([27.605, 85.332], 13);
-
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 18
+      maxZoom: 18, attribution: '© OSM'
     }).addTo(map);
-
-    routeLine = L.polyline([], {color: '#4ade80', weight: 3, opacity: 0.7}).addTo(map);
+    riddenLine = L.polyline([], {color: '#4ade80', weight: 4, opacity: 0.9}).addTo(map);
   }
-}
-
-// Watch position for live tracking
-function watchPosition() {
-  if (!navigator.geolocation) {
-    alert('Geolocation not supported');
-    return;
-  }
-
-  navigator.geolocation.watchPosition(pos => {
-    const lat = pos.coords.latitude;
-    const lng = pos.coords.longitude;
-    const accuracy = pos.coords.accuracy;
-
-    // Update or create position marker
-    if (!posMarker) {
-      posMarker = L.marker([lat, lng], {
-        icon: L.icon({
-          iconUrl: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 30"><circle cx="15" cy="15" r="8" fill="%234ade80" stroke="white" stroke-width="2"/><circle cx="15" cy="15" r="3" fill="white"/></svg>',
-          iconSize: [30, 30],
-          iconAnchor: [15, 15]
-        })
-      }).addTo(map);
-
-      posCircle = L.circle([lat, lng], {
-        radius: accuracy,
-        color: '#4ade80',
-        opacity: 0.2,
-        fill: false
-      }).addTo(map);
-    } else {
-      posMarker.setLatLng([lat, lng]);
-      posCircle.setLatLng([lat, lng]);
-      posCircle.setRadius(accuracy);
-    }
-
-    if (rideActive) {
-      rideData.positions.push([lat, lng]);
-      
-      // Calculate distance
-      if (rideData.lastPos) {
-        const dist = getDistance(rideData.lastPos[0], rideData.lastPos[1], lat, lng);
-        rideData.distance += dist;
-      }
-      rideData.lastPos = [lat, lng];
-
-      // Update route line
-      routeLine.setLatLngs(rideData.positions);
-      
-      // Update stats
-      updateStats();
-    }
-
-    // Center map on position
-    map.panTo([lat, lng]);
-  });
-}
-
-// Haversine formula to calculate distance between two points
-function getDistance(lat1, lng1, lat2, lng2) {
-  const R = 6371; // Earth's radius in km
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLng = (lng2 - lng1) * Math.PI / 180;
-  const a = Math.sin(dLat/2) * Math.sin(dLat/2) + 
-            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-            Math.sin(dLng/2) * Math.sin(dLng/2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-  return R * c;
-}
-
-// Start ride
-function startRide() {
-  rideActive = true;
-  rideData = {
-    startTime: Date.now(),
-    distance: 0,
-    lastPos: null,
-    positions: []
-  };
-  routeLine.setLatLngs([]);
-  document.getElementById('startBtn').style.display = 'none';
-  document.getElementById('stopBtn').style.display = 'block';
-  watchPosition();
-}
-
-// Stop ride
-function stopRide() {
-  rideActive = false;
-  document.getElementById('startBtn').style.display = 'block';
-  document.getElementById('stopBtn').style.display = 'none';
-}
-
-// Update stats display
-function updateStats() {
-  const distKm = rideData.distance.toFixed(2);
-  let timeStr = '0:00';
-  let speed = 0;
   
-  if (rideActive && rideData.startTime) {
-    const time = Math.floor((Date.now() - rideData.startTime) / 1000);
-    const hours = Math.floor(time / 3600);
-    const minutes = Math.floor((time % 3600) / 60);
-    const seconds = time % 60;
-    timeStr = hours > 0 ? `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}` : `${minutes}:${seconds.toString().padStart(2, '0')}`;
-    speed = time > 0 ? (rideData.distance / (time / 3600)).toFixed(1) : 0;
-  }
-
-  document.getElementById('distance').textContent = distKm + ' km';
-  document.getElementById('time').textContent = timeStr;
-  document.getElementById('speed').textContent = speed + ' km/h';
-}
-
-// Waypoint management
-function openWaypointModal() {
-  document.getElementById('waypointModal').classList.add('show');
-  document.getElementById('wpName').focus();
-}
-
-function closeWaypointModal() {
-  document.getElementById('waypointModal').classList.remove('show');
-  document.getElementById('errorMsg').textContent = '';
-  document.getElementById('wpName').value = '';
-  document.getElementById('wpLat').value = '';
-  document.getElementById('wpLng').value = '';
-}
-
-function addWaypoint() {
-  const name = document.getElementById('wpName').value.trim();
-  const lat = parseFloat(document.getElementById('wpLat').value);
-  const lng = parseFloat(document.getElementById('wpLng').value);
-  const errorMsg = document.getElementById('errorMsg');
-
-  errorMsg.textContent = '';
-
-  if (!name) {
-    errorMsg.textContent = 'Please enter a name';
-    return;
-  }
-
-  if (isNaN(lat) || isNaN(lng)) {
-    errorMsg.textContent = 'Invalid coordinates';
-    return;
-  }
-
-  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-    errorMsg.textContent = 'Coordinates out of range';
-    return;
-  }
-
-  waypoints.push({ name, lat, lng, id: Date.now() });
-  renderWaypoints();
-  closeWaypointModal();
-
-  // Add marker to map
-  const marker = L.marker([lat, lng], {
-    icon: L.icon({
-      iconUrl: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 40"><path d="M15 0C8.4 0 3 5.4 3 12c0 9 12 28 12 28s12-19 12-28c0-6.6-5.4-12-12-12z" fill="%2360a5fa" stroke="white" stroke-width="1.5"/><circle cx="15" cy="12" r="4" fill="white"/></svg>',
-      iconSize: [30, 40],
-      iconAnchor: [15, 40]
-    }),
-    title: name
-  }).addTo(map).bindPopup(`<b>${name}</b><br>${lat.toFixed(4)}, ${lng.toFixed(4)}`);
-
-  waypointMarkers.push(marker);
-}
-
-function removeWaypoint(id) {
-  const idx = waypoints.findIndex(w => w.id === id);
-  if (idx >= 0) {
-    waypoints.splice(idx, 1);
-    waypointMarkers[idx].remove();
-    waypointMarkers.splice(idx, 1);
-    renderWaypoints();
+  // Clear existing markers
+  wpMarkers.forEach(m => map.removeLayer(m));
+  wpMarkers = [];
+  if (routeLine) map.removeLayer(routeLine);
+  
+  // Draw route and markers
+  routeLine = L.polyline(ROUTE_COORDS, {color: '#4ade80', weight: 3, opacity: 0.25, dashArray: '6 8'}).addTo(map);
+  
+  WAYPOINTS.forEach((wp, i) => {
+    const isFirst = i === 0, isLast = i === WAYPOINTS.length - 1;
+    const color = isFirst ? '#4ade80' : isLast ? '#f87171' : '#60a5fa';
+    const size = isFirst || isLast ? 14 : 10;
+    const icon = L.divIcon({
+      html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};border:2px solid #0f1a12;box-shadow:0 0 0 2px ${color}40;"></div>`,
+      className: '', iconAnchor: [size/2, size/2]
+    });
+    const marker = L.marker([wp.lat, wp.lng], {icon}).addTo(map);
+    marker.bindPopup(`<b>${wp.name}</b><br>${wp.sub}`, {className: 'map-popup'});
+    wpMarkers.push(marker);
+  });
+  
+  if (ROUTE_COORDS.length > 0) {
+    const bounds = L.latLngBounds(ROUTE_COORDS.map(c => L.latLng(c[0], c[1])));
+    map.fitBounds(bounds, {padding: [24, 24]});
   }
 }
 
-function renderWaypoints() {
-  const list = document.getElementById('waypointList');
-  if (waypoints.length === 0) {
-    list.innerHTML = '<div style="color: var(--muted); font-size: 12px;">No waypoints yet. Click "Add Waypoint" to get started.</div>';
-    return;
-  }
+// ── Config UI ────────────────────────────────────────────────
+function openConfig() {
+  document.getElementById('config-route-name').value = ROUTE.name;
+  document.getElementById('config-route-desc').value = ROUTE.shortDesc;
+  renderConfigWaypoints();
+  document.getElementById('config-modal').classList.add('show');
+}
 
-  list.innerHTML = waypoints.map(wp => `
-    <div class="waypoint-item">
-      <div class="waypoint-info">
-        <div class="waypoint-name">${wp.name}</div>
-        <div class="waypoint-coords">${wp.lat.toFixed(4)}, ${wp.lng.toFixed(4)}</div>
+function closeConfig() {
+  document.getElementById('config-modal').classList.remove('show');
+}
+
+function renderConfigWaypoints() {
+  const container = document.getElementById('config-waypoints');
+  container.innerHTML = WAYPOINTS.map((wp, i) => `
+    <div class="wp-edit-row">
+      <div class="wp-edit-fields">
+        <input type="text" placeholder="Name" value="${wp.name}" onchange="updateWaypoint(${i}, 'name', this.value)">
+        <input type="text" placeholder="Description" value="${wp.sub}" onchange="updateWaypoint(${i}, 'sub', this.value)">
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px;">
+          <input type="number" step="0.0001" placeholder="Lat" value="${wp.lat}" onchange="updateWaypoint(${i}, 'lat', parseFloat(this.value))">
+          <input type="number" step="0.0001" placeholder="Lng" value="${wp.lng}" onchange="updateWaypoint(${i}, 'lng', parseFloat(this.value))">
+          <input type="number" step="0.1" placeholder="Dist (km)" value="${wp.dist}" onchange="updateWaypoint(${i}, 'dist', parseFloat(this.value))">
+        </div>
       </div>
-      <button class="btn-remove" onclick="removeWaypoint(${wp.id})">Remove</button>
+      <button class="wp-edit-remove" onclick="removeWaypoint(${i})">✕</button>
     </div>
   `).join('');
 }
 
-// Initialize
-initMap();
-updateStats();
-setInterval(updateStats, 1000);
-</script>
+function updateWaypoint(i, field, val) {
+  WAYPOINTS[i][field] = val;
+}
 
+function removeWaypoint(i) {
+  WAYPOINTS.splice(i, 1);
+  renderConfigWaypoints();
+}
+
+function addWaypoint() {
+  WAYPOINTS.push({
+    name: 'New Waypoint',
+    sub: 'Description',
+    dist: WAYPOINTS.length > 0 ? Math.max(...WAYPOINTS.map(w => w.dist)) + 1 : 0,
+    lat: 27.6,
+    lng: 85.33
+  });
+  renderConfigWaypoints();
+}
+
+function saveConfig() {
+  ROUTE.name = document.getElementById('config-route-name').value || 'Route';
+  ROUTE.shortDesc = document.getElementById('config-route-desc').value || 'No description';
+  ROUTE.totalDist = WAYPOINTS.length > 0 ? Math.max(...WAYPOINTS.map(w => w.dist)) : 14;
+  
+  // Rebuild route coords from waypoints
+  ROUTE_COORDS = WAYPOINTS.map(w => [w.lat, w.lng]);
+  ELEV = WAYPOINTS.map((_, i) => 1330 - (i * 20));
+  
+  updateHeaderUI();
+  initMap();
+  renderWaypoints();
+  closeConfig();
+}
+
+function updateHeaderUI() {
+  document.getElementById('route-name').textContent = ROUTE.shortDesc;
+  state.visitedWps = new Set([0]);
+}
+
+// ── Waypoint rendering ────────────────────────────────────────
+function toggleWaypoints() {
+  state.wpOpen = !state.wpOpen;
+  const list = document.getElementById('wp-list');
+  const toggle = document.getElementById('wp-toggle');
+  list.classList.toggle('open', state.wpOpen);
+  toggle.classList.toggle('open', state.wpOpen);
+}
+
+function renderWaypoints() {
+  const container = document.getElementById('wp-content');
+  let html = '';
+  WAYPOINTS.forEach((wp, i) => {
+    const isLast = i === WAYPOINTS.length - 1;
+    const visited = state.visitedWps.has(i);
+    const isNext = !visited && state.visitedWps.has(i - 1);
+    const circleClass = isLast
+      ? (visited ? 'done end-dot' : 'end-dot')
+      : (visited ? 'done' : isNext ? 'current' : '');
+    const badge = visited && i > 0
+      ? `<span class="wp-badge done">✓</span>`
+      : isNext
+        ? `<span class="wp-badge next">Next</span>`
+        : i > 0
+          ? `<span class="wp-badge dist">${wp.dist}km</span>`
+          : '';
+    html += `
+      <div class="wp-row">
+        <div class="wp-track">
+          <div class="wp-circle ${circleClass}"></div>
+          ${i < WAYPOINTS.length - 1 ? '<div class="wp-line"></div>' : ''}
+        </div>
+        <div class="wp-info">
+          <div class="wp-name">${wp.name}</div>
+          <div class="wp-sub">${wp.sub}</div>
+        </div>
+        ${badge}
+      </div>`;
+  });
+  container.innerHTML = html;
+  document.getElementById('wp-count').textContent = `(${WAYPOINTS.length})`;
+}
+
+// ── Elevation profile ─────────────────────────────────────────
+function drawElevation(progressFraction = 0) {
+  const canvas = document.getElementById('elev-canvas');
+  const W = canvas.parentElement.clientWidth - 24;
+  const H = 48;
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+
+  if (ELEV.length === 0) return;
+  const minE = Math.min(...ELEV), maxE = Math.max(...ELEV);
+  const range = maxE - minE || 1;
+  const toX = i => (i / Math.max(ELEV.length - 1, 1)) * W;
+  const toY = e => H - 4 - ((e - minE) / range) * (H - 12);
+
+  ctx.beginPath();
+  ctx.moveTo(0, H);
+  ELEV.forEach((e, i) => ctx.lineTo(toX(i), toY(e)));
+  ctx.lineTo(W, H); ctx.closePath();
+  ctx.fillStyle = 'rgba(74,222,128,0.06)';
+  ctx.fill();
+
+  ctx.beginPath();
+  ELEV.forEach((e, i) => i === 0 ? ctx.moveTo(toX(i), toY(e)) : ctx.lineTo(toX(i), toY(e)));
+  ctx.strokeStyle = 'rgba(74,222,128,0.25)'; ctx.lineWidth = 1.5; ctx.stroke();
+
+  if (progressFraction > 0) {
+    const progIdx = Math.floor(progressFraction * Math.max(ELEV.length - 1, 1));
+    ctx.beginPath();
+    ctx.moveTo(0, H);
+    for (let i = 0; i <= progIdx; i++) ctx.lineTo(toX(i), toY(ELEV[i]));
+    ctx.lineTo(toX(progIdx), H); ctx.closePath();
+    ctx.fillStyle = 'rgba(74,222,128,0.2)'; ctx.fill();
+
+    ctx.beginPath();
+    for (let i = 0; i <= progIdx; i++) {
+      i === 0 ? ctx.moveTo(toX(i), toY(ELEV[i])) : ctx.lineTo(toX(i), toY(ELEV[i]));
+    }
+    ctx.strokeStyle = '#4ade80'; ctx.lineWidth = 2; ctx.stroke();
+  }
+}
+
+// ── Stats update ──────────────────────────────────────────────
+function updateUI() {
+  document.getElementById('val-dist').innerHTML = state.distKm.toFixed(1) + '<span class="stat-unit">km</span>';
+  document.getElementById('val-time').innerHTML = fmtTime(state.elapsed) + '<span class="stat-unit">m</span>';
+  document.getElementById('val-speed').innerHTML = state.speed.toFixed(1) + '<span class="stat-unit">km/h</span>';
+
+  const prog = ROUTE.totalDist > 0 ? Math.min(state.distKm / ROUTE.totalDist, 1) : 0;
+  drawElevation(prog);
+
+  WAYPOINTS.forEach((wp, i) => {
+    if (state.distKm >= wp.dist - 0.15) state.visitedWps.add(i);
+  });
+  renderWaypoints();
+
+  document.querySelectorAll('.stat').forEach(s => s.classList.remove('highlight'));
+  if (state.status === 'riding') document.getElementById('stat-speed').classList.add('highlight');
+}
+
+// ── GPS ───────────────────────────────────────────────────────
+function startGPS() {
+  if (!navigator.geolocation) {
+    showGpsError('Geolocation not supported.');
+    startSimulation();
+    return;
+  }
+  setGpsActive(false, 'Acquiring…');
+  state.gpsWatchId = navigator.geolocation.watchPosition(
+    onGpsSuccess, onGpsError,
+    {enableHighAccuracy: true, maximumAge: 2000, timeout: 10000}
+  );
+}
+
+function onGpsSuccess(pos) {
+  state.usingRealGPS = true;
+  hideGpsError();
+  setGpsActive(true, 'Live');
+  clearInterval(state.simInt);
+
+  const {latitude: lat, longitude: lng, speed} = pos.coords;
+  if (state.lastPos) {
+    const seg = haversine(state.lastPos, [lat, lng]);
+    if (seg < 0.5) state.distKm += seg;
+  }
+  state.lastPos = [lat, lng];
+  state.positions.push([lat, lng]);
+  riddenLine.setLatLngs(state.positions);
+  updatePosMarker(lat, lng);
+  map.panTo([lat, lng], {animate: true, duration: 0.8});
+  if (speed !== null && speed >= 0) {
+    state.speed = speed * 3.6;
+    state.maxSpeed = Math.max(state.maxSpeed, state.speed);
+  }
+  state.avgSpeed = state.elapsed > 0 ? (state.distKm / (state.elapsed / 3600)) : 0;
+  updateUI();
+}
+
+function onGpsError(err) {
+  if (state.usingRealGPS) return;
+  const msgs = {1: 'Location access denied.', 2: 'GPS signal lost.', 3: 'GPS timeout.'};
+  showGpsError((msgs[err.code] || 'GPS error.') + ' Using simulation.');
+  setGpsActive(false, 'Unavailable');
+  startSimulation();
+}
+
+function stopGPS() {
+  if (state.gpsWatchId !== null) {
+    navigator.geolocation.clearWatch(state.gpsWatchId);
+    state.gpsWatchId = null;
+  }
+  clearInterval(state.simInt);
+}
+
+function updatePosMarker(lat, lng) {
+  const icon = L.divIcon({
+    html: `<div style="width:16px;height:16px;border-radius:50%;background:#60a5fa;border:3px solid white;box-shadow:0 0 0 4px rgba(96,165,250,0.3);"></div>`,
+    className: '', iconAnchor: [8, 8]
+  });
+  if (!posMarker) {
+    posMarker = L.marker([lat, lng], {icon, zIndexOffset: 1000}).addTo(map);
+  } else {
+    posMarker.setLatLng([lat, lng]);
+  }
+}
+
+// ── Simulation ───────────────────────────────────────────────
+function startSimulation() {
+  if (state.simInt || ROUTE_COORDS.length === 0) return;
+  state.simInt = setInterval(() => {
+    if (state.status !== 'riding') return;
+    if (state.simStep >= ROUTE_COORDS.length - 1) {clearInterval(state.simInt); return;}
+    state.simStep++;
+    const prev = ROUTE_COORDS[state.simStep - 1];
+    const curr = ROUTE_COORDS[state.simStep];
+    const seg = haversine(prev, curr);
+    state.distKm += seg;
+    state.lastPos = curr;
+    state.positions.push([...curr]);
+    riddenLine.setLatLngs(state.positions.map(p => L.latLng(p[0], p[1])));
+    updatePosMarker(curr[0], curr[1]);
+    map.panTo([curr[0], curr[1]], {animate: true, duration: 0.8});
+    state.speed = 8 + Math.random() * 6;
+    state.maxSpeed = Math.max(state.maxSpeed, state.speed);
+    state.avgSpeed = state.elapsed > 0 ? (state.distKm / (state.elapsed / 3600)) : 0;
+    updateUI();
+  }, 1200);
+}
+
+// ── Controls ──────────────────────────────────────────────────
+function handleMain() {
+  if (WAYPOINTS.length < 2) {
+    alert('Please configure at least a start and end point');
+    return;
+  }
+  if (state.status === 'idle') {
+    state.elapsed = 0; state.distKm = 0; state.speed = 0; state.avgSpeed = 0;
+    state.maxSpeed = 0; state.positions = [ROUTE_COORDS[0]];
+    state.visitedWps = new Set([0]); state.simStep = 0; state.usingRealGPS = false;
+    state.lastPos = ROUTE_COORDS[0];
+    riddenLine.setLatLngs([]);
+    updatePosMarker(ROUTE_COORDS[0][0], ROUTE_COORDS[0][1]);
+    startRide();
+  } else if (state.status === 'paused') {
+    startRide();
+  }
+}
+
+function startRide() {
+  state.status = 'riding';
+  setStatusUI('riding');
+  document.getElementById('btn-main').textContent = 'Riding…';
+  document.getElementById('btn-main').disabled = true;
+  document.getElementById('btn-pause').disabled = false;
+  document.getElementById('btn-stop').disabled = false;
+  state.timerInt = setInterval(() => {state.elapsed++; updateUI();}, 1000);
+  startGPS();
+  if ('wakeLock' in navigator) {
+    navigator.wakeLock.request('screen').catch(() => {});
+  }
+}
+
+function handlePause() {
+  if (state.status !== 'riding') return;
+  state.status = 'paused';
+  clearInterval(state.timerInt);
+  stopGPS();
+  setStatusUI('paused');
+  document.getElementById('btn-main').textContent = 'Resume';
+  document.getElementById('btn-main').disabled = false;
+  document.getElementById('btn-pause').disabled = true;
+  setGpsActive(false, 'Paused');
+}
+
+function handleStop() {
+  clearInterval(state.timerInt);
+  stopGPS();
+  state.status = 'idle';
+  setStatusUI('idle');
+
+  const entry = {
+    route: ROUTE.name,
+    dist: state.distKm.toFixed(2),
+    time: fmtTime(state.elapsed),
+    avg: state.avgSpeed.toFixed(1),
+    wps: state.visitedWps.size - 1,
+    ts: new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}),
+    date: new Date().toLocaleDateString([], {weekday: 'short', month: 'short', day: 'numeric'})
+  };
+  state.rideHistory.unshift(entry);
+
+  document.getElementById('sum-dist').textContent = entry.dist;
+  document.getElementById('sum-time').textContent = entry.time;
+  document.getElementById('sum-avg').textContent = entry.avg;
+  document.getElementById('sum-wp').textContent = entry.wps + '/' + (WAYPOINTS.length - 1);
+  document.getElementById('sum-route').textContent = entry.route;
+  document.getElementById('overlay').classList.add('show');
+
+  renderHistory();
+  document.getElementById('btn-main').textContent = 'Start ride';
+  document.getElementById('btn-main').disabled = false;
+  document.getElementById('btn-pause').disabled = true;
+  document.getElementById('btn-stop').disabled = true;
+  setGpsActive(false, 'Off');
+}
+
+function closeSummary() {
+  document.getElementById('overlay').classList.remove('show');
+}
+
+function shareRide() {
+  const entry = state.rideHistory[0];
+  if (!entry) return;
+  const text = `🚴 Ride: ${entry.route}\n📏 ${entry.dist} km\n⏱️ ${entry.time}\n⚡ Avg ${entry.avg} km/h\n✅ ${entry.wps}/${WAYPOINTS.length - 1} checkpoints`;
+  if (navigator.share) {
+    navigator.share({title: entry.route, text}).catch(() => {});
+  } else {
+    navigator.clipboard.writeText(text).then(() => {
+      document.getElementById('btn-share').textContent = '✅ Copied!';
+      setTimeout(() => {document.getElementById('btn-share').textContent = '📤 Share';}, 2000);
+    });
+  }
+}
+
+// ── History ───────────────────────────────────────────────────
+function renderHistory() {
+  const el = document.getElementById('history-list');
+  if (state.rideHistory.length === 0) {
+    el.innerHTML = '<p class="history-empty">No rides yet</p>';
+    return;
+  }
+  el.innerHTML = state.rideHistory.map(r => `
+    <div class="ride-card">
+      <div class="ride-icon">🚴</div>
+      <div class="ride-info">
+        <div class="ride-title">${r.route}</div>
+        <div class="ride-meta">${r.date} · ${r.ts} · ${r.time}</div>
+      </div>
+      <div class="ride-km">${r.dist}<small style="font-size:9px;color:var(--muted)">km</small></div>
+    </div>
+  `).join('');
+}
+
+// ── Helpers ───────────────────────────────────────────────────
+function haversine(a, b) {
+  const R = 6371;
+  const dLat = (b[0] - a[0]) * Math.PI / 180;
+  const dLng = (b[1] - a[1]) * Math.PI / 180;
+  const s = Math.sin(dLat/2)**2 + Math.cos(a[0]*Math.PI/180)*Math.cos(b[0]*Math.PI/180)*Math.sin(dLng/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1-s));
+}
+
+function fmtTime(s) {
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60).toString().padStart(2, '0');
+  const sec = (s % 60).toString().padStart(2, '0');
+  return h > 0 ? `${h}:${m}:${sec}` : `${m}:${sec}`;
+}
+
+function setStatusUI(s) {
+  const pill = document.getElementById('status-pill');
+  const dot = document.getElementById('status-dot');
+  const txt = document.getElementById('status-text');
+  pill.className = 'status-pill ' + (s !== 'idle' ? s : '');
+  dot.className = 'status-dot ' + (s === 'riding' ? 'pulse' : '');
+  txt.textContent = s === 'riding' ? 'Riding' : s === 'paused' ? 'Paused' : 'Ready';
+}
+
+function setGpsActive(active, label) {
+  const el = document.getElementById('gps-indicator');
+  el.className = 'gps-indicator' + (active ? ' active' : '');
+  document.getElementById('gps-text').textContent = label;
+}
+
+function showGpsError(msg) {
+  const el = document.getElementById('gps-error');
+  document.getElementById('gps-error-text').textContent = msg;
+  el.classList.add('show');
+}
+
+function hideGpsError() {
+  document.getElementById('gps-error').classList.remove('show');
+}
+
+// ── Init ──────────────────────────────────────────────────────
+initMap();
+renderWaypoints();
+drawElevation(0);
+updateHeaderUI();
+
+window.addEventListener('resize', () => {
+  if (map) {
+    drawElevation(ROUTE.totalDist > 0 ? Math.min(state.distKm / ROUTE.totalDist, 1) : 0);
+    setTimeout(() => map.invalidateSize(), 100);
+  }
+});
+</script>
 </body>
 </html>
