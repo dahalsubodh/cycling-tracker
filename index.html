@@ -134,9 +134,19 @@
     flex-shrink: 0;
     position: relative;
     z-index: 1;
+    background: #1a2e1c linear-gradient(135deg, #1a2e1c, #172019) no-repeat;
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    font-size: 12px;
   }
   .leaflet-container { background: #1a2e1c !important; }
   .leaflet-tile { filter: saturate(0.4) brightness(0.6) hue-rotate(80deg); }
+  .leaflet-pane { position: absolute !important; }
+  .map-placeholder { color: var(--muted); font-size: 12px; text-align: center; }
 
   /* ── Stats grid - compact ── */
   #stats {
@@ -562,7 +572,7 @@
   </div>
 </div>
 
-<div id="map"></div>
+<div id="map"><div class="map-placeholder">📍 Route map<br><small>(Open settings to configure)</small></div></div>
 
 <div id="scroll-body">
 
@@ -723,45 +733,56 @@ let selectedWpIndex = null;
 
 // ── Initialize map ──────────────────────────────────────────
 function initMap() {
-  if (!map) {
-    map = L.map('map', {
-      zoomControl: false,
-      attributionControl: false,
-      dragging: true,
-      scrollWheelZoom: false,
-    }).setView([27.605, 85.332], 13);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 18, attribution: '© OSM'
-    }).addTo(map);
-    riddenLine = L.polyline([], {color: '#4ade80', weight: 4, opacity: 0.9}).addTo(map);
-  }
-  
-  // Clear existing markers
-  wpMarkers.forEach(m => map.removeLayer(m));
-  wpMarkers = [];
-  if (routeLine) map.removeLayer(routeLine);
-  
-  // Draw route
-  routeLine = L.polyline(ROUTE_COORDS, {color: '#4ade80', weight: 3, opacity: 0.25, dashArray: '6 8'}).addTo(map);
-  
-  // Add waypoint markers
-  WAYPOINTS.forEach((wp, i) => {
-    const isFirst = i === 0, isLast = i === WAYPOINTS.length - 1;
-    const color = isFirst ? '#4ade80' : isLast ? '#f87171' : '#60a5fa';
-    const size = isFirst || isLast ? 14 : 10;
-    const icon = L.divIcon({
-      html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};border:2px solid #0f1a12;box-shadow:0 0 0 2px ${color}40;"></div>`,
-      className: '', iconAnchor: [size/2, size/2]
+  try {
+    if (!map && typeof L !== 'undefined') {
+      // Clear placeholder
+      const mapDiv = document.getElementById('map');
+      const placeholder = mapDiv?.querySelector('.map-placeholder');
+      if (placeholder) placeholder.remove();
+      
+      map = L.map('map', {
+        zoomControl: false,
+        attributionControl: false,
+        dragging: true,
+        scrollWheelZoom: false,
+      }).setView([27.605, 85.332], 13);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 18, attribution: '© OSM'
+      }).addTo(map);
+      riddenLine = L.polyline([], {color: '#4ade80', weight: 4, opacity: 0.9}).addTo(map);
+    }
+    
+    if (!map) return;
+    
+    // Clear existing markers
+    wpMarkers.forEach(m => map.removeLayer(m));
+    wpMarkers = [];
+    if (routeLine) map.removeLayer(routeLine);
+    
+    // Draw route
+    routeLine = L.polyline(ROUTE_COORDS, {color: '#4ade80', weight: 3, opacity: 0.25, dashArray: '6 8'}).addTo(map);
+    
+    // Add waypoint markers
+    WAYPOINTS.forEach((wp, i) => {
+      const isFirst = i === 0, isLast = i === WAYPOINTS.length - 1;
+      const color = isFirst ? '#4ade80' : isLast ? '#f87171' : '#60a5fa';
+      const size = isFirst || isLast ? 14 : 10;
+      const icon = L.divIcon({
+        html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};border:2px solid #0f1a12;box-shadow:0 0 0 2px ${color}40;"></div>`,
+        className: '', iconAnchor: [size/2, size/2]
+      });
+      const marker = L.marker([wp.lat, wp.lng], {icon}).addTo(map);
+      marker.bindPopup(`<b>${wp.name}</b><br>${wp.sub}`, {className: 'map-popup'});
+      wpMarkers.push(marker);
     });
-    const marker = L.marker([wp.lat, wp.lng], {icon}).addTo(map);
-    marker.bindPopup(`<b>${wp.name}</b><br>${wp.sub}`, {className: 'map-popup'});
-    wpMarkers.push(marker);
-  });
-  
-  // Fit bounds
-  if (ROUTE_COORDS.length > 0) {
-    const bounds = L.latLngBounds(ROUTE_COORDS.map(c => L.latLng(c[0], c[1])));
-    map.fitBounds(bounds, {padding: [24, 24]});
+    
+    // Fit bounds
+    if (ROUTE_COORDS.length > 0) {
+      const bounds = L.latLngBounds(ROUTE_COORDS.map(c => L.latLng(c[0], c[1])));
+      map.fitBounds(bounds, {padding: [24, 24]});
+    }
+  } catch(e) {
+    console.log('[v0] Map init error:', e.message);
   }
 }
 
@@ -780,11 +801,17 @@ async function reverseGeocode(lat, lng) {
 
 // ── Config UI ────────────────────────────────────────────────
 function openConfig() {
-  document.getElementById('config-route-name').value = ROUTE.name;
-  document.getElementById('config-route-desc').value = ROUTE.shortDesc;
-  renderConfigWaypoints();
-  initConfigMap();
-  document.getElementById('config-modal').classList.add('show');
+  try {
+    document.getElementById('config-route-name').value = ROUTE.name;
+    document.getElementById('config-route-desc').value = ROUTE.shortDesc;
+    renderConfigWaypoints();
+    if (typeof L !== 'undefined') {
+      setTimeout(() => initConfigMap(), 100);
+    }
+    document.getElementById('config-modal').classList.add('show');
+  } catch(e) {
+    console.log('[v0] openConfig error:', e.message);
+  }
 }
 
 function closeConfig() {
@@ -792,55 +819,64 @@ function closeConfig() {
 }
 
 function initConfigMap() {
-  // Destroy existing map if present
-  if (configMap) {
-    configMap.remove();
-    configMap = null;
-    configMapMarkers = [];
-  }
-  
-  // Create new map
-  configMap = L.map('config-map', {
-    zoomControl: false,
-    attributionControl: false,
-    dragging: true,
-    scrollWheelZoom: false,
-  }).setView([27.605, 85.332], 13);
-  
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 18, attribution: '© OSM'
-  }).addTo(configMap);
-  
-  // Clear existing markers
-  configMapMarkers.forEach(m => configMap.removeLayer(m));
-  configMapMarkers = [];
-  
-  // Add waypoint markers
-  WAYPOINTS.forEach((wp, i) => {
-    const isFirst = i === 0, isLast = i === WAYPOINTS.length - 1;
-    const color = isFirst ? '#4ade80' : isLast ? '#f87171' : '#60a5fa';
-    const size = isFirst || isLast ? 14 : 10;
-    const icon = L.divIcon({
-      html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};border:2px solid #0f1a12;box-shadow:0 0 0 2px ${color}40;cursor:pointer;" data-wp-index="${i}"></div>`,
-      className: '', iconAnchor: [size/2, size/2]
-    });
-    const marker = L.marker([wp.lat, wp.lng], {icon}).addTo(configMap);
-    marker.on('click', () => selectWaypointOnMap(i));
-    configMapMarkers.push(marker);
-  });
-  
-  // Fit bounds
-  if (ROUTE_COORDS.length > 0) {
-    const bounds = L.latLngBounds(ROUTE_COORDS.map(c => L.latLng(c[0], c[1])));
-    configMap.fitBounds(bounds, {padding: [20, 20]});
-  }
-  
-  // Handle map clicks to place waypoint
-  configMap.on('click', (e) => {
-    if (selectedWpIndex !== null) {
-      updateWaypointFromMap(selectedWpIndex, e.latlng.lat, e.latlng.lng);
+  try {
+    if (typeof L === 'undefined') {
+      console.log('[v0] Leaflet not loaded yet');
+      return;
     }
-  });
+    
+    // Destroy existing map if present
+    if (configMap) {
+      configMap.remove();
+      configMap = null;
+      configMapMarkers = [];
+    }
+    
+    // Create new map
+    configMap = L.map('config-map', {
+      zoomControl: false,
+      attributionControl: false,
+      dragging: true,
+      scrollWheelZoom: false,
+    }).setView([27.605, 85.332], 13);
+    
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 18, attribution: '© OSM'
+    }).addTo(configMap);
+    
+    // Clear existing markers
+    configMapMarkers.forEach(m => configMap.removeLayer(m));
+    configMapMarkers = [];
+    
+    // Add waypoint markers
+    WAYPOINTS.forEach((wp, i) => {
+      const isFirst = i === 0, isLast = i === WAYPOINTS.length - 1;
+      const color = isFirst ? '#4ade80' : isLast ? '#f87171' : '#60a5fa';
+      const size = isFirst || isLast ? 14 : 10;
+      const icon = L.divIcon({
+        html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};border:2px solid #0f1a12;box-shadow:0 0 0 2px ${color}40;cursor:pointer;" data-wp-index="${i}"></div>`,
+        className: '', iconAnchor: [size/2, size/2]
+      });
+      const marker = L.marker([wp.lat, wp.lng], {icon}).addTo(configMap);
+      marker.on('click', () => selectWaypointOnMap(i));
+      configMapMarkers.push(marker);
+    });
+    
+    // Fit bounds
+    if (ROUTE_COORDS.length > 0) {
+      const bounds = L.latLngBounds(ROUTE_COORDS.map(c => L.latLng(c[0], c[1])));
+      configMap.fitBounds(bounds, {padding: [20, 20]});
+    }
+    
+    // Handle map clicks to place waypoint
+    configMap.on('click', (e) => {
+      if (selectedWpIndex !== null) {
+        updateWaypointFromMap(selectedWpIndex, e.latlng.lat, e.latlng.lng);
+      }
+    });
+  } catch(e) {
+    console.log('[v0] Config map init error:', e.message);
+  }
 }
   
   // Create new map
@@ -892,7 +928,7 @@ function initConfigMap() {
       updateWaypointFromMap(selectedWpIndex, e.latLng.lat(), e.latLng.lng());
     }
   });
-}
+
 
 function selectWaypointOnMap(index) {
   selectedWpIndex = index;
@@ -1356,13 +1392,39 @@ function hideGpsError() {
 }
 
 // ── Init ──────────────────────────────────────────────────────
-initMap();
-renderWaypoints();
-drawElevation(0);
-updateHeaderUI();
+// Wait for DOM to be ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => {
+      try {
+        document.getElementById('config-btn').addEventListener('click', openConfig);
+        document.getElementById('config-modal').querySelector('.btn-config-close').addEventListener('click', closeConfig);
+        initMap();
+        renderWaypoints();
+        drawElevation(0);
+        updateHeaderUI();
+      } catch(e) {
+        console.log('[v0] Init error:', e.message);
+      }
+    }, 200);
+  });
+} else {
+  setTimeout(() => {
+    try {
+      document.getElementById('config-btn').addEventListener('click', openConfig);
+      document.getElementById('config-modal').querySelector('.btn-config-close').addEventListener('click', closeConfig);
+      initMap();
+      renderWaypoints();
+      drawElevation(0);
+      updateHeaderUI();
+    } catch(e) {
+      console.log('[v0] Init error:', e.message);
+    }
+  }, 200);
+}
 
 window.addEventListener('resize', () => {
-  if (map) {
+  if (map && map.invalidateSize) {
     drawElevation(ROUTE.totalDist > 0 ? Math.min(state.distKm / ROUTE.totalDist, 1) : 0);
     setTimeout(() => map.invalidateSize(), 100);
   }
